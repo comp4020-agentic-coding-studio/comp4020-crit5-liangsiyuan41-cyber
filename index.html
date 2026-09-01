@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>COMP4020 prototype</title>
+    <title>Make 21</title>
     <meta
       name="description"
-      content="Replace this with one sentence saying what this page is. A search result and a link preview both show it."
+      content="Make 21: combine four number tiles with +, -, x, / to reach exactly 21, across 30 levels."
     />
 
     <!--
@@ -23,15 +23,34 @@
   <body>
     <header>
       <nav aria-label="Primary">
-        <a href="./">Home</a>
+        <a href="./">Make 21</a>
       </nav>
     </header>
     <main>
-      <h1>COMP4020 prototype</h1>
-      <p>
-        Replace this with your prototype. This week's brief is on the course website;
-        <code>spec/README.md</code> explains how the checks in this repo relate to it.
-      </p>
+      <h1>Make 21</h1>
+
+      <section id="level-select">
+        <h2>Choose a level</h2>
+        <div id="level-grid"></div>
+      </section>
+
+      <section id="game" hidden>
+        <p><button type="button" id="back-to-levels">← Levels</button></p>
+        <h2 id="game-title">Level</h2>
+
+        <div id="tiles" role="group" aria-label="Number tiles"></div>
+        <div id="operators" role="group" aria-label="Operators"></div>
+        <p id="expression" aria-live="polite"></p>
+
+        <div id="controls">
+          <button type="button" id="undo">Undo</button>
+          <button type="button" id="reset">Reset</button>
+          <button type="button" id="view-answer">View Answer</button>
+          <button type="button" id="submit">Submit</button>
+        </div>
+
+        <div id="feedback" aria-live="polite"></div>
+      </section>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>
