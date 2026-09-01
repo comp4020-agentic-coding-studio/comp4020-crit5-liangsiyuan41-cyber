@@ -1,8 +1,8 @@
-// The Make 21 rules engine: structured tokens evaluated by standard
-// arithmetic precedence, no parentheses, no `eval`. Independent of the DOM
-// so it can be unit tested and reused by the UI, the level solver and the
-// level-data checker alike.
-import { type Rational, add, divide, fromInt, multiply, subtract } from "./rational.ts";
+// The Make 21 rules engine: structured tokens evaluated strictly left to
+// right, like a simple calculator --- no operator precedence, no
+// parentheses, no `eval`. Independent of the DOM so it can be unit tested
+// and reused by the UI, the level solver and the level-data checker alike.
+import { type Rational, add, divide, multiply, subtract } from "./rational.ts";
 
 export type Operator = "+" | "-" | "*" | "/";
 
@@ -62,16 +62,34 @@ export function validateExpression(tiles: readonly Tile[], tokens: readonly Toke
   return { valid: true };
 }
 
-// Standard precedence, no parentheses: resolve every * and / left to right
-// first, then resolve the remaining + and - left to right.
-export function evaluate(tokens: readonly Token[]): Rational {
+// One completed calculation step: the operator and tile the player picked,
+// and the running value after applying them.
+export interface Step {
+  readonly operator: Operator;
+  readonly operand: Rational;
+  readonly result: Rational;
+}
+
+// The game is integer-only: every tile is a whole number, and +/-/* of whole
+// numbers always stay whole, so only a division step can break that --- this
+// is where the "whole number" rule actually gets enforced.
+export class NonIntegerDivisionError extends Error {
+  constructor() {
+    super("division must produce a whole number");
+  }
+}
+
+// Applies each operator to the running value in exactly the order the
+// tokens appear --- no precedence, no grouping. `tokens` may end in a tile
+// at any point (1, 3, 5, ... tokens), not just a complete expression, so the
+// UI can call this after every step to get the history so far.
+export function evaluateSteps(tokens: readonly Token[]): Step[] {
   const first = tokens[0];
   if (!first || tokens.length % 2 === 0 || first.kind !== "tile") {
     throw new Error("expression must alternate tile, operator, tile, ...");
   }
 
-  const terms: { sign: "+" | "-"; value: Rational }[] = [];
-  let sign: "+" | "-" = "+";
+  const steps: Step[] = [];
   let value = first.tile.value;
 
   for (let i = 1; i < tokens.length; i += 2) {
@@ -80,27 +98,34 @@ export function evaluate(tokens: readonly Token[]): Rational {
     if (opToken?.kind !== "operator" || tileToken?.kind !== "tile") {
       throw new Error("expression must alternate tile, operator, tile, ...");
     }
-    const next = tileToken.tile.value;
+    const operand = tileToken.tile.value;
     switch (opToken.operator) {
+      case "+":
+        value = add(value, operand);
+        break;
+      case "-":
+        value = subtract(value, operand);
+        break;
       case "*":
-        value = multiply(value, next);
+        value = multiply(value, operand);
         break;
       case "/":
-        value = divide(value, next);
-        break;
-      case "+":
-      case "-":
-        terms.push({ sign, value });
-        sign = opToken.operator;
-        value = next;
+        value = divide(value, operand);
+        if (value.den !== 1) throw new NonIntegerDivisionError();
         break;
     }
+    steps.push({ operator: opToken.operator, operand, result: value });
   }
-  terms.push({ sign, value });
 
-  let result = fromInt(0);
-  for (const term of terms) {
-    result = term.sign === "+" ? add(result, term.value) : subtract(result, term.value);
+  return steps;
+}
+
+// The final running value once every step has been applied.
+export function evaluate(tokens: readonly Token[]): Rational {
+  const first = tokens[0];
+  if (!first || first.kind !== "tile") {
+    throw new Error("expression must alternate tile, operator, tile, ...");
   }
-  return result;
+  const steps = evaluateSteps(tokens);
+  return steps.length > 0 ? steps[steps.length - 1]!.result : first.tile.value;
 }

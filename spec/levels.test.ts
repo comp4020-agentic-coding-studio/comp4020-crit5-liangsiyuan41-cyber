@@ -7,9 +7,9 @@ import { LEVELS } from "../levels.ts";
 import { isSolvable } from "../solver.ts";
 
 describe("the level bank", () => {
-  it("has exactly 30 levels, sequentially numbered from 1", () => {
-    expect(LEVELS).toHaveLength(30);
-    expect(LEVELS.map((level) => level.id)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
+  it("has exactly 21 levels, sequentially numbered from 1", () => {
+    expect(LEVELS).toHaveLength(21);
+    expect(LEVELS.map((level) => level.id)).toEqual(Array.from({ length: 21 }, (_, i) => i + 1));
   });
 
   it("gives every level exactly four uniquely identified tiles", () => {

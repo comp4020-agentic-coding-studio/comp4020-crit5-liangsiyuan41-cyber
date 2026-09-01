@@ -6,7 +6,7 @@
     <title>Make 21</title>
     <meta
       name="description"
-      content="Make 21: combine four number tiles with +, -, x, / to reach exactly 21, across 30 levels."
+      content="Make 21: combine four number tiles with +, -, x, / to reach exactly 21, across 21 levels."
     />
 
     <!--
@@ -40,7 +40,9 @@
 
         <div id="tiles" role="group" aria-label="Number tiles"></div>
         <div id="operators" role="group" aria-label="Operators"></div>
-        <p id="expression" aria-live="polite"></p>
+        <p id="current-value" aria-live="polite"></p>
+        <ol id="history" aria-label="Calculation steps"></ol>
+        <p id="move-error" aria-live="polite"></p>
 
         <div id="controls">
           <button type="button" id="undo">Undo</button>
@@ -50,6 +52,15 @@
         </div>
 
         <div id="feedback" aria-live="polite"></div>
+      </section>
+
+      <section id="congrats" hidden>
+        <h2>Congratulations!</h2>
+        <p>You've completed all 21 levels of Make 21.</p>
+        <div id="congrats-controls">
+          <button type="button" id="congrats-back">Back to Levels</button>
+          <button type="button" id="congrats-play-again">Play Again</button>
+        </div>
       </section>
     </main>
     <script type="module" src="./main.ts"></script>

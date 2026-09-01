@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  padding: 2rem;
+  padding: 2rem 1rem;
   font-family: system-ui, sans-serif;
   line-height: 1.6;
   color: #1a1a1a;
@@ -8,7 +8,7 @@ body {
 }
 
 main {
-  max-width: 40rem;
+  max-width: 42rem;
   margin: 0 auto;
 }
 
@@ -18,6 +18,15 @@ a {
 
 h1 {
   margin-bottom: 0.25rem;
+  text-align: center;
+}
+
+#level-select {
+  padding: 0 0.5rem;
+}
+
+#level-select h2 {
+  text-align: center;
 }
 
 #level-grid {
@@ -51,6 +60,16 @@ button.level.completed {
   color: white;
 }
 
+/* The game screen is the main event on desktop --- a centred card with
+   room to breathe, instead of a narrow strip hugging the left edge. */
+#game {
+  background: white;
+  border: 1px solid #e6e6e6;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  padding: 2rem 2.5rem 2.5rem;
+}
+
 #game #back-to-levels {
   background: none;
   border: none;
@@ -60,23 +79,42 @@ button.level.completed {
   font-size: 1rem;
 }
 
+#game-title {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
 #tiles,
-#operators,
-#controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
+#operators {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+#tiles {
+  margin-top: 1.5rem;
+}
+
+#operators {
+  margin-top: 0.75rem;
+}
+
+#tiles button {
+  min-height: 4rem;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+#operators button {
+  min-height: 3rem;
+  font-size: 1.3rem;
 }
 
 #tiles button,
 #operators button,
 #controls button {
-  min-width: 3rem;
-  min-height: 3rem;
   border: none;
-  border-radius: 0.5rem;
-  font-size: 1.1rem;
+  border-radius: 0.75rem;
   cursor: pointer;
   background: #eef1f7;
 }
@@ -93,28 +131,166 @@ button.level.completed {
   text-decoration: line-through;
 }
 
-#expression {
-  font-size: 1.4rem;
-  min-height: 2rem;
+#current-value {
+  font-size: 2rem;
+  font-weight: 700;
+  min-height: 2.5rem;
+  margin: 1.5rem 0 0.5rem;
+  text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+#history {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.95rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #6a6a6a;
+}
+
+/* Undo / Reset / View Answer / Submit as one balanced row --- same size,
+   Submit the one blue action among them. */
+#controls {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+#controls button {
+  min-height: 3rem;
+  font-size: 1rem;
+  padding: 0 0.25rem;
 }
 
 #controls button#submit {
   background: #0b5fff;
   color: white;
+  font-weight: 600;
+}
+
+#move-error {
+  min-height: 1.2rem;
+  margin: 0.5rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #b3261e;
 }
 
 #feedback {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
+}
+
+#feedback .feedback-message {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+#feedback .feedback-message.failure {
+  color: #b3261e;
+}
+
+#feedback .feedback-message.success {
+  color: #1f9d55;
 }
 
 #feedback button {
-  margin-right: 0.5rem;
-  min-height: 2.5rem;
-  padding: 0 1rem;
+  margin: 0 0.5rem 0.5rem 0;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
   border: none;
   border-radius: 0.5rem;
   background: #0b5fff;
   color: white;
   cursor: pointer;
+}
+
+/* Shown instead of the game screen once the last level is solved --- same
+   card language as #game, but its own simple two-button row. */
+#congrats {
+  background: white;
+  border: 1px solid #e6e6e6;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  padding: 2.5rem;
+  text-align: center;
+}
+
+#congrats h2 {
+  margin-top: 0;
+  font-size: 1.75rem;
+  color: #1f9d55;
+}
+
+#congrats-controls {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+#congrats-controls button {
+  min-height: 3rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+
+#congrats-play-again {
+  background: #0b5fff;
+  color: white;
+  font-weight: 600;
+}
+
+#congrats-back {
+  background: #eef1f7;
+}
+
+/* Small phones (e.g. 390x844): the card's border/shadow/padding is just
+   overhead when the screen is already the card's edge --- drop it, and
+   trim spacing so every control stays on-screen with no horizontal scroll. */
+@media (max-width: 480px) {
+  body {
+    padding: 1rem 0.75rem;
+  }
+
+  #game,
+  #congrats {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  #tiles button {
+    min-height: 3.5rem;
+    font-size: 1.3rem;
+  }
+
+  #operators button {
+    min-height: 3rem;
+    font-size: 1.15rem;
+  }
+
+  #controls {
+    gap: 0.4rem;
+  }
+
+  #controls button {
+    min-height: 3rem;
+    font-size: 0.85rem;
+    padding: 0 0.15rem;
+  }
+
+  #current-value {
+    font-size: 1.6rem;
+  }
 }

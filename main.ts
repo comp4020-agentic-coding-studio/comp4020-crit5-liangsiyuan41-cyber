@@ -3,9 +3,18 @@
 // legal expression, whether it's exactly 21, which levels unlock) live in
 // levels.ts/expression.ts/rational.ts/progress.ts and are reused as-is.
 import { createProgress } from "./progress.ts";
-import { evaluate, op, tile, validateExpression, type Operator, type Token } from "./expression.ts";
+import {
+  NonIntegerDivisionError,
+  evaluate,
+  evaluateSteps,
+  op,
+  tile,
+  validateExpression,
+  type Operator,
+  type Token,
+} from "./expression.ts";
 import { LEVELS, type Level } from "./levels.ts";
-import { equals, fromInt } from "./rational.ts";
+import { equals, fromInt, type Rational } from "./rational.ts";
 
 const progress = createProgress(LEVELS.length);
 
@@ -16,12 +25,17 @@ const backToLevels = document.querySelector<HTMLButtonElement>("#back-to-levels"
 const gameTitle = document.querySelector<HTMLElement>("#game-title")!;
 const tilesEl = document.querySelector<HTMLElement>("#tiles")!;
 const operatorsEl = document.querySelector<HTMLElement>("#operators")!;
-const expressionEl = document.querySelector<HTMLElement>("#expression")!;
+const currentValueEl = document.querySelector<HTMLElement>("#current-value")!;
+const historyEl = document.querySelector<HTMLElement>("#history")!;
+const moveErrorEl = document.querySelector<HTMLElement>("#move-error")!;
 const undoButton = document.querySelector<HTMLButtonElement>("#undo")!;
 const resetButton = document.querySelector<HTMLButtonElement>("#reset")!;
 const viewAnswerButton = document.querySelector<HTMLButtonElement>("#view-answer")!;
 const submitButton = document.querySelector<HTMLButtonElement>("#submit")!;
 const feedbackEl = document.querySelector<HTMLElement>("#feedback")!;
+const congrats = document.querySelector<HTMLElement>("#congrats")!;
+const congratsBack = document.querySelector<HTMLButtonElement>("#congrats-back")!;
+const congratsPlayAgain = document.querySelector<HTMLButtonElement>("#congrats-play-again")!;
 
 const OPERATORS: readonly Operator[] = ["+", "-", "*", "/"];
 const OPERATOR_SYMBOLS: Record<Operator, string> = { "+": "+", "-": "−", "*": "×", "/": "÷" };
@@ -29,6 +43,9 @@ const OPERATOR_SYMBOLS: Record<Operator, string> = { "+": "+", "-": "−", "*": 
 let currentLevel: Level | null = null;
 let tokens: Token[] = [];
 let ended = false;
+// Set only by View Answer, to show the stored answer's steps instead of the
+// player's own (possibly empty) attempt.
+let showingAnswer = false;
 
 function renderLevelSelect(): void {
   levelGrid.replaceChildren(
@@ -55,6 +72,7 @@ function openLevel(id: number): void {
   currentLevel = level;
   tokens = [];
   ended = false;
+  showingAnswer = false;
   gameTitle.textContent = `Level ${level.id}`;
   feedbackEl.replaceChildren();
   levelSelect.hidden = true;
@@ -69,8 +87,53 @@ function closeLevel(): void {
   renderLevelSelect();
 }
 
-function formatTokens(tokens: readonly Token[]): string {
-  return tokens.map((token) => (token.kind === "tile" ? String(token.tile.value.num) : OPERATOR_SYMBOLS[token.operator])).join(" ");
+// Replaces the normal "solved!" feedback when the just-solved level is the
+// last one --- a dedicated screen instead of an offer to go to a non-existent
+// next level.
+function showCongratulations(): void {
+  game.hidden = true;
+  congrats.hidden = false;
+}
+
+function formatRational(value: Rational): string {
+  return value.den === 1 ? String(value.num) : `${value.num}/${value.den}`;
+}
+
+function tileValueAt(tokens: readonly Token[], index: number): Rational {
+  const token = tokens[index];
+  if (token?.kind !== "tile") throw new Error("expected a tile");
+  return token.tile.value;
+}
+
+// Renders the running value and the history of completed steps for
+// `source` (either the player's own tokens, or a stored answer). `source`
+// may end mid-step (an operator with no tile chosen yet) --- that trailing
+// operator is dropped before evaluating, and shown separately as a prompt.
+function renderCalculation(source: readonly Token[]): void {
+  if (source.length === 0) {
+    currentValueEl.textContent = "Tap a tile to begin.";
+    historyEl.replaceChildren();
+    return;
+  }
+
+  const last = source[source.length - 1];
+  const pending = source.length % 2 === 0 && last?.kind === "operator" ? last : null;
+  const settled = pending ? source.slice(0, -1) : source;
+  const steps = evaluateSteps(settled);
+  const current = evaluate(settled);
+
+  currentValueEl.textContent = pending
+    ? `Current value: ${formatRational(current)} — choose a tile for ${OPERATOR_SYMBOLS[pending.operator]}`
+    : `Current value: ${formatRational(current)}`;
+
+  historyEl.replaceChildren(
+    ...steps.map((step, i) => {
+      const previous = i === 0 ? tileValueAt(settled, 0) : steps[i - 1]!.result;
+      const item = document.createElement("li");
+      item.textContent = `${formatRational(previous)} ${OPERATOR_SYMBOLS[step.operator]} ${formatRational(step.operand)} = ${formatRational(step.result)}`;
+      return item;
+    }),
+  );
 }
 
 function usedTileIds(): Set<string> {
@@ -83,6 +146,7 @@ function usedTileIds(): Set<string> {
 
 function renderGame(): void {
   if (!currentLevel) return;
+  moveErrorEl.textContent = "";
   const level = currentLevel;
   const used = usedTileIds();
   const expectingTile = tokens.length % 2 === 0;
@@ -95,8 +159,22 @@ function renderGame(): void {
       button.textContent = String(t.value.num);
       button.disabled = ended || used.has(t.id) || !expectingTile;
       button.addEventListener("click", () => {
+        const candidate = [...tokens, tile(t)];
+        // A tile completes a division step --- try it against the real rules
+        // engine and reject the move (leaving `tokens` untouched) if that
+        // step's result isn't a whole number, rather than duplicating the
+        // divisibility check here.
+        try {
+          evaluateSteps(candidate);
+        } catch (err) {
+          if (err instanceof NonIntegerDivisionError) {
+            moveErrorEl.textContent = "Division must give a whole number.";
+            return;
+          }
+          throw err;
+        }
         feedbackEl.textContent = "";
-        tokens.push(tile(t));
+        tokens = candidate;
         renderGame();
       });
       return button;
@@ -119,7 +197,7 @@ function renderGame(): void {
     }),
   );
 
-  expressionEl.textContent = tokens.length > 0 ? formatTokens(tokens) : "Tap a tile to begin.";
+  renderCalculation(showingAnswer ? level.answer : tokens);
 
   undoButton.disabled = ended || tokens.length === 0;
   resetButton.disabled = ended || tokens.length === 0;
@@ -132,6 +210,7 @@ function showEndedFeedback(message: string, options: { offerNext: boolean }): vo
   feedbackEl.replaceChildren();
 
   const text = document.createElement("p");
+  text.className = `feedback-message${options.offerNext ? " success" : ""}`;
   text.textContent = message;
   feedbackEl.append(text);
 
@@ -150,8 +229,42 @@ function showEndedFeedback(message: string, options: { offerNext: boolean }): vo
   }
 }
 
+// A wrong submit ends the attempt (like a solved level or View Answer) so
+// the failure state is deliberate and clearly named, rather than silently
+// clearing the board --- the player only starts over by clicking Try Again.
+function showFailureFeedback(): void {
+  feedbackEl.replaceChildren();
+
+  const text = document.createElement("p");
+  text.className = "feedback-message failure";
+  text.textContent = "Not 21 — try again.";
+  feedbackEl.append(text);
+
+  const tryAgain = document.createElement("button");
+  tryAgain.type = "button";
+  tryAgain.textContent = "Try Again";
+  tryAgain.addEventListener("click", () => {
+    tokens = [];
+    ended = false;
+    feedbackEl.replaceChildren();
+    renderGame();
+  });
+  feedbackEl.append(tryAgain);
+
+  const back = document.createElement("button");
+  back.type = "button";
+  back.textContent = "Back to levels";
+  back.addEventListener("click", closeLevel);
+  feedbackEl.append(back);
+}
+
 undoButton.addEventListener("click", () => {
-  tokens.pop();
+  // A lone first tile just goes away; mid-step (a pending operator with no
+  // tile chosen yet) drops just that operator; otherwise a whole completed
+  // step (operator + tile) is undone at once, restoring the previous
+  // running value and freeing the tile it used.
+  const newLength = tokens.length === 1 ? 0 : tokens.length % 2 === 0 ? tokens.length - 1 : tokens.length - 2;
+  tokens = tokens.slice(0, newLength);
   renderGame();
 });
 
@@ -163,7 +276,7 @@ resetButton.addEventListener("click", () => {
 viewAnswerButton.addEventListener("click", () => {
   if (!currentLevel) return;
   ended = true;
-  expressionEl.textContent = `${formatTokens(currentLevel.answer)} = 21`;
+  showingAnswer = true;
   showEndedFeedback("Here's one solution. This attempt doesn't count as solved.", { offerNext: false });
   renderGame();
 });
@@ -175,15 +288,30 @@ submitButton.addEventListener("click", () => {
   if (equals(evaluate(tokens), fromInt(21))) {
     ended = true;
     progress.complete(level.id);
-    showEndedFeedback(`Level ${level.id} solved!`, { offerNext: true });
+    renderGame();
+    if (level.id === LEVELS.length) {
+      showCongratulations();
+    } else {
+      showEndedFeedback(`Level ${level.id} solved!`, { offerNext: true });
+    }
   } else {
-    tokens = [];
-    feedbackEl.replaceChildren();
-    feedbackEl.textContent = "Not 21 — try again.";
+    ended = true;
+    showFailureFeedback();
+    renderGame();
   }
-  renderGame();
 });
 
 backToLevels.addEventListener("click", closeLevel);
+
+congratsBack.addEventListener("click", () => {
+  congrats.hidden = true;
+  closeLevel();
+});
+
+congratsPlayAgain.addEventListener("click", () => {
+  progress.reset();
+  congrats.hidden = true;
+  openLevel(1);
+});
 
 renderLevelSelect();

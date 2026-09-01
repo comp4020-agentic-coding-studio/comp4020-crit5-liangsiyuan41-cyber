@@ -3,7 +3,7 @@
 // exact rules engine the game uses. Small enough to search exhaustively ---
 // 4! orderings * 4^3 operator combinations = 1,536 candidates for four tiles.
 import { DivisionByZeroError, equals, fromInt, type Rational } from "./rational.ts";
-import { evaluate, op, tile, type Operator, type Tile, type Token } from "./expression.ts";
+import { NonIntegerDivisionError, evaluate, op, tile, type Operator, type Tile, type Token } from "./expression.ts";
 
 const OPERATORS: readonly Operator[] = ["+", "-", "*", "/"];
 
@@ -31,7 +31,7 @@ export function solve(tiles: readonly Tile[], target: Rational = fromInt(21)): T
       try {
         if (equals(evaluate(tokens), target)) return tokens;
       } catch (err) {
-        if (!(err instanceof DivisionByZeroError)) throw err;
+        if (!(err instanceof DivisionByZeroError) && !(err instanceof NonIntegerDivisionError)) throw err;
       }
     }
   }
